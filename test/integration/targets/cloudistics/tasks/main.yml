@@ -1,0 +1,187 @@
+---
+# __Test Outline__
+#
+# __cloudistics__
+# create test application
+# start app
+# stop app
+# restart app
+# pause app
+# resume app
+# remove app
+
+- block:
+
+    # ============================================================
+    # create test application
+
+    - name: Create application
+      cl_app:
+        name: "{{ tag_prefix }}"
+        description: "{{ cldstcs_description }}"
+        vcpus: "{{ cldstcs_vcpus }}"
+        memory: "{{ cldstcs_memory }}"
+        template_name: "{{ cldstcs_template_name }}"
+        category_name: "{{ cldstcs_category_name }}"
+        data_center_name: "{{ cldstcs_data_center_name }}"
+        migration_zone_name: "{{ cldstcs_migration_zone_name }}"
+        flash_pool_name: "{{ cldstcs_flash_pool_name }}"
+        nics: "{{ cldstcs_nics }}"
+        tag_names: "{{ cldstcs_tag_names }}"
+        wait: True
+        state: present
+      register: result
+
+    - assert:
+        that:
+          - 'result.changed'
+          - 'result.instance.status == "Shut down"'
+          - 'result.instance.name == "{{ tag_prefix }}"'
+          - 'result.instance.description == "{{ cldstcs_description }}"'
+          - 'result.instance.vcpus == {{ cldstcs_vcpus }}'
+          - 'result.instance.memory == {{ cldstcs_memory }}'
+          # We don't get the names back
+          # - 'result.instance.template_name == "{{ cldstcs_template_name }}"'
+          # - 'result.instance.category_name == "{{ cldstcs_category_name }}"'
+          # - 'result.instance.data_center_name == "{{ cldstcs_data_center_name }}"'
+          # - 'result.instance.migration_zone_name == "{{ cldstcs_migration_zone_name }}"'
+          # - 'result.instance.flash_pool_name == "{{ cldstcs_flash_pool_name }}"'
+
+
+    # ============================================================
+    # start application
+
+    - name: Start application
+      cl_app_action:
+        name: "{{ tag_prefix }}"
+        action: start
+        wait: True
+        wait_timeout: 300
+      register: result
+
+    - assert:
+        that:
+          - 'result.changed'
+          - 'result.completed'
+          - 'result.status == "Completed"'
+          - 'result.instance.status == "Running"'
+
+
+    # ============================================================
+    # stop application
+
+    - name: Stop application
+      cl_app_action:
+        name: "{{ tag_prefix }}"
+        action: stop
+        wait: True
+        wait_timeout: 300
+      register: result
+
+    - assert:
+        that:
+          - 'result.changed'
+          - 'result.completed'
+          - 'result.status == "Completed"'
+          - 'result.instance.status == "Shut down"'
+
+
+    # ============================================================
+    # start application
+
+    - name: Start application
+      cl_app_action:
+        name: "{{ tag_prefix }}"
+        action: start
+        wait: True
+        wait_timeout: 300
+      register: result
+
+    - assert:
+        that:
+          - 'result.changed'
+          - 'result.completed'
+          - 'result.status == "Completed"'
+          - 'result.instance.status == "Running"'
+
+
+    # ============================================================
+    # pause for 5 minutes to allow the guest agent to be installed
+    - pause:
+        prompt: 'Make sure the guest agent is running before continuing'
+        minutes: 5
+
+
+    # ============================================================
+    # restart application
+
+    - name: Restart application
+      cl_app_action:
+        name: "{{ tag_prefix }}"
+        action: restart
+        wait: True
+        wait_timeout: 300
+      register: result
+
+    - assert:
+        that:
+          - 'result.changed'
+          - 'result.completed'
+          - 'result.status == "Completed"'
+          - 'result.instance.status == "Running"'
+
+
+    # ============================================================
+    # pause application
+
+    - name: Pause application
+      cl_app_action:
+        name: "{{ tag_prefix }}"
+        action: pause
+        wait: True
+        wait_timeout: 300
+      register: result
+
+    - assert:
+        that:
+          - 'result.changed'
+          - 'result.completed'
+          - 'result.status == "Completed"'
+          - 'result.instance.status == "Paused"'
+
+
+    # ============================================================
+    # resume application
+
+    - name: Resume application
+      cl_app_action:
+        name: "{{ tag_prefix }}"
+        action: resume
+        wait: True
+        wait_timeout: 300
+      register: result
+
+    - assert:
+        that:
+          - 'result.changed'
+          - 'result.completed'
+          - 'result.status == "Completed"'
+          - 'result.instance.status == "Running"'
+
+
+  always:
+
+    # ============================================================
+    - name: remove the test application completely
+      cl_app:
+        name: "{{ tag_prefix }}"
+        state: absent
+      register: result
+
+    - name: assert the application was removed
+      assert:
+        that:
+          - 'result.changed'
+          - 'result.completed'
+          - 'result.status == "Completed"'
+

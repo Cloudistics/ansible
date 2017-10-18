@@ -1,0 +1,19 @@
+---
+# defaults file for test_cloudistics
+#tag_prefix: 'ansible-testing-'
+tag_prefix: 'testing-'
+cldstcs_description: 'Test Description'
+cldstcs_vcpus: 1
+cldstcs_memory: 1073741824
+cldstcs_template_name: 'Centos 7.3 with Cloudera 5.10'
+cldstcs_category_name: Default
+cldstcs_data_center_name: 'Prod VDC'
+cldstcs_migration_zone_name: 'Prod-MZ'
+cldstcs_flash_pool_name: 'Prod-Storage-Pool'
+cldstcs_nics:
+  - name: 'vNIC 0'
+    vnet_name: 'Prod-MZ-VNET-01'
+    type: 'Virtual Networking'
+cldstcs_tag_names:
+  - 'CLD-1'
+
