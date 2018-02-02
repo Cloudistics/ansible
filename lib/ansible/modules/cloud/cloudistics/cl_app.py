@@ -1,5 +1,7 @@
 #!/usr/bin/python
-# Copyright: Ansible Project
+# -*- coding: utf-8 -*-
+
+# Copyright: (c) 2017, Ansible Project
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -13,71 +15,73 @@ DOCUMENTATION = '''
 module: cl_app
 short_description: Create/Delete Applications from Cloudistics
 extends_documentation_fragment: cloudistics
-version_added: "2.4"
-author: "Joe Cavanaugh (@juniorfoo)"
 description:
-   - Create or Remove applications from Cloudistics.
+   - Creates or Removes Cloudistics virtual machines.
 options:
   description:
     description:
       - Description of the application
     required: false
-    default: null
   vcpus:
     description:
       - Count of vcpus to be assigned to the new application
     required: false
-    default: null
   memory:
     description:
-      - Amount of memory to be assigned to the new application
+      - Amount of memory to be assigned to the new application (kb, mb, gb, tb. e.g., 1g)
     required: false
-    default: null
   tags:
     description:
       - Tag or list of tags to be provided to the application
     required: false
-    default: null
-  template_name:
+  template:
     description:
-      - Name of the template to create the application with
+      - Template to create the application with
     required: false
-    default: true
-  category_name:
+  category:
     description:
-      - Name of the category to create this application with
+      - Category to create this application with
     required: false
-    default: false
-  data_center_name:
+  data_center:
     description:
-      - Name of the data center to create this application into
+      - Data center to create this application into
     required: false
-    default: false
-  migration_zone_name:
+  migration_zone:
     description:
-      - Name of the migration zone to create this application with
+      - Migration zone to create this application with
     required: false
-    default: true
-  flash_pool_name:
+  flash_pool:
     description:
-      - Name of the flash pool to create this application with
-    required: true
-    default: null
-  nics:
+      - Flash pool to create this application with
+    required: false
+  vnic_name:
     description:
-      - List of nics for this application (see example)
-    required: true
-    default: null
+      - Virtual NIC Name
+    required: false
+  vnic_mode:
+    description:
+      - Virtual NIC Mode
+    required: false
+    default: 'Bridged'
+    choices: ['Bridged', 'Node-Only', 'Virtual Networking']
+  vnic_vnet:
+    description:
+      - Virtual NIC VNET
+    required: false
+  vnic_fw:
+    description:
+      - Virtual NIC FW
+    required: false
+  vnic_mac:
+    description:
+      - Virtual NIC MAC Address
+    required: false
   state:
     description:
       - Should the resource be present or absent.
     required: true
-    default: 'present'
-    choices: ['present', 'absent']
-
-requirements:
-    - "python >= 2.7"
-    - "cloudistics >= 0.0.1"
+    default: present
+    choices: [absent, present]
 '''
 
 EXAMPLES = '''
@@ -91,17 +95,16 @@ EXAMPLES = '''
       description: xx
       vcpus: 1
       memory: 1073741824
-      template_name: World Community Grid
-      category_name: Default
-      data_center_name: DC2
-      migration_zone_name: MZ1
-      flash_pool_name: SP1
-      nics:
-        - name: 'vNIC 0'
-          vnet_name: Vnet1
-          type: 'Virtual Networking'
-          firewall_name: 'allow all'
-      tag_names:
+      template: World Community Grid
+      category: Default
+      data_center: DC2
+      migration_zone: MZ1
+      flash_pool: SP1
+      vnic_name: 'vNIC 0'
+      vnic_mode: 'Virtual Networking'
+      vnic_vnet: Vnet1
+      vnic_fw: 'allow all'
+      tags:
         - TT1
         - TT2
       wait: False
@@ -117,29 +120,28 @@ EXAMPLES = '''
       description: "{{ item.description }}"
       vcpus: "{{ item.vcpu }}"
       memory: "{{ item.memory }}"
-      template_name: "{{ item.template_name }}"
-      category_name: "{{ item.category_name }}"
-      data_center_name: "{{ item.data_center_name }}"
-      migration_zone_name: "{{ item.migration_zone_name }}"
-      flash_pool_name: "{{ item.flash_pool_name }}"
-      tag_names: "{{ item.tag_names }}"
+      template: "{{ item.template }}"
+      category: "{{ item.category }}"
+      data_center: "{{ item.data_center }}"
+      migration_zone: "{{ item.migration_zone }}"
+      flash_pool: "{{ item.flash_pool }}"
+      tags: "{{ item.tags }}"
       wait: "{{ item.wait }}"
     with_items:
       - name: xx1
         description: xx
         vcpus: 1
         memory: 1073741824
-        template_name: World Community Grid
-        category_name: Default
-        data_center_name: DC2
-        migration_zone_name: MZ1
-        flash_pool_name: SP1
-        nics:
-          - name: 'vNIC 0'
-            vnet_name: Vnet1
-            type: 'Virtual Networking'
-            firewall_name: 'allow all'
-        tag_names:
+        template: World Community Grid
+        category: Default
+        data_center: DC2
+        migration_zone: MZ1
+        flash_pool: SP1
+        vnic_name: 'vNIC 0'
+        vnic_mode: 'Virtual Networking'
+        vnic_vnet: Vnet1
+        vnic_fw: 'allow all'
+        tags:
           - TT1
           - TT2
         wait: True
@@ -147,17 +149,16 @@ EXAMPLES = '''
         description: xx
         vcpus: 1
         memory: 1073741824
-        template_name: World Community Grid
-        category_name: Default
-        data_center_name: DC2
-        migration_zone_name: MZ1
-        flash_pool_name: SP1
-        nics:
-          - name: 'vNIC 0'
-            vnet_name: Vnet1
-            type: 'Virtual Networking'
-            firewall_name: 'allow all'
-        tag_names:
+        template: World Community Grid
+        category: Default
+        data_center: DC2
+        migration_zone: MZ1
+        flash_pool: SP1
+        vnic_name: 'vNIC 0'
+        vnic_mode: 'Virtual Networking'
+        vnic_vnet: Vnet1
+        vnic_fw: 'allow all'
+        tags:
           - TT1
           - TT2
         wait: True
@@ -165,17 +166,16 @@ EXAMPLES = '''
         description: xx
         vcpus: 1
         memory: 1073741824
-        template_name: World Community Grid
-        category_name: Default
-        data_center_name: DC2
-        migration_zone_name: MZ1
-        flash_pool_name: SP1
-        nics:
-          - name: 'vNIC 0'
-            vnet_name: Vnet1
-            type: 'Virtual Networking'
-            firewall_name: 'allow all'
-        tag_names:
+        template: World Community Grid
+        category: Default
+        data_center: DC2
+        migration_zone: MZ1
+        flash_pool: SP1
+        vnic_name: 'vNIC 0'
+        vnic_mode: 'Virtual Networking'
+        vnic_vnet: Vnet1
+        vnic_fw: 'allow all'
+        tags:
           - TT1
           - TT2
         wait: True
@@ -203,61 +203,52 @@ except ImportError:
     HAS_CL = False
 
 from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.cloudistics import cloudistics_convert_memory_abbreviation_to_bytes
 from ansible.module_utils.cloudistics import cloudistics_full_argument_spec
 from ansible.module_utils.cloudistics import cloudistics_lookup_by_name
 from ansible.module_utils.cloudistics import cloudistics_wait_for_action
 
-STATES = ['present', 'absent']
-CPU_SIZES = [1, 2, 4, 8, 16, 32, 56]
-MEMORY_SIZES = [1024, 2048, 4096, 6144, 8192, 12288, 16384, 32768, 49152, 65536, 131072, 247808]
-
-
-def _nic_as_tuple(nic):
-    """Formats nic as a 4-tuple, in the order specified by the Cloudistics API"""
-    # N.B. string manipulations on protocols below (str(), upper()) is to
-    # ensure format matches output from ELB API
-    nic_list = [
-        str(nic['name']),
-        str(nic['type']),
-    ]
-
-    # If Virtual Networking, vnet is required, fw name is optional.
-    if nic['type'] in ['Virtual Networking']:
-        nic_list.append(str(nic['vnet_name']))
-        nic_list.append(str(nic['firewall_name']))
-
-    return tuple(nic_list)
+STATES = ['absent', 'present']
+MODES = ['Bridged', 'Node-Only', 'Virtual Networking']
 
 
 def main():
     argument_spec = cloudistics_full_argument_spec(
         state=dict(required='present', choices=STATES),
         description=dict(),
-        vcpus=dict(aliases=['cpus', 'vcpu', 'cpu']),
-        memory=dict(),
-        template_name=dict(),
-        category_name=dict(),
-        data_center_name=dict(),
-        migration_zone_name=dict(),
-        flash_pool_name=dict(),
-        nics=dict(default=None, type='list'),
-        tag_names=dict(type='list'),
+        vcpus=dict(type='int', aliases=['cpus', 'vcpu', 'cpu']),
+        memory=dict(default=1073741824, aliases=['mem']),
+        template=dict(),
+        category=dict(aliases=['cat']),
+        data_center=dict(aliases=['dc']),
+        migration_zone=dict(aliases=['mz']),
+        flash_pool=dict(aliases=['fp', 'sp']),
+        vnic_name=dict(),
+        vnic_mode=dict(default='Bridged', choices=MODES),
+        vnic_vnet=dict(),
+        vnic_fw=dict(),
+        vnic_mac=dict(),
+        tags=dict(type='list'),
     )
 
     a_module = AnsibleModule(
         argument_spec=argument_spec,
 
-        # mutually_exclusive=(
-        #     ['template_name', 'template_uuid'],
-        # ),
+        mutually_exclusive=(
+            ['name', 'uuid'],
+        ),
 
         required_if=(
             [
-                ['state', 'absent', ['name']],
-                ['state', 'present', ['name', 'template_name', 'category_name', 'data_center_name',
-                                      'migration_zone_name', 'flash_pool_name', 'nics']],
+                # ['state', 'absent', ['name']],
+                ['state', 'present', ['name', 'template', 'data_center', 'migration_zone', 'flash_pool']],
+                ['vnic_mode', 'Virtual Networking', ['vnic_vnet']]
             ]
         ),
+
+        required_one_of=[
+            ['name', 'uuid']
+        ],
 
         # required_together=(
         #     ['a', 'b', 'b'],
@@ -266,7 +257,6 @@ def main():
         supports_check_mode=True
     )
 
-    name = a_module.params['name']
     state = a_module.params['state']
     wait = a_module.params['wait']
     wait_timeout = a_module.params['wait_timeout']
@@ -276,12 +266,12 @@ def main():
     status = None
 
     if not HAS_CL:
-        a_module.fail_json(msg='Cloudistics python library required for this module')
+        a_module.fail_json(msg='Cloudistics python library (>=0.9.4) required for this module')
 
     try:
         act_mgr = ActionsManager(cloudistics.client())
         app_mgr = ApplicationsManager(cloudistics.client())
-        instance = cloudistics_lookup_by_name(app_mgr, name)
+        instance = cloudistics_lookup_by_name(app_mgr, a_module.params.get('name'), a_module.params.get('uuid'))
 
         if a_module.check_mode:
             if state == 'absent':
@@ -290,35 +280,36 @@ def main():
                 a_module.exit_json(instance=instance, changed=(instance is None))
 
         if state == 'absent' and instance:
-            res_action = app_mgr.delete_instance(instance['uuid'])
+            uuid_to_delete = instance['uuid']
+            res_action = app_mgr.delete(uuid_to_delete)
             if res_action:
                 changed = True
                 if wait:
                     (completed, status) = cloudistics_wait_for_action(act_mgr, wait_timeout, res_action)
-                instance = cloudistics_lookup_by_name(app_mgr, name)
+                instance = cloudistics_lookup_by_name(app_mgr, a_module.params.get('name'), a_module.params.get('uuid'))
 
         elif state == 'present' and not instance:
-            # nics = [_nic_as_tuple(l) for l in a_module.params['nics']]
-            nics = a_module.params['nics']
-
-            res_action = app_mgr.create_instance(
+            mem_in_bytes = cloudistics_convert_memory_abbreviation_to_bytes(a_module.params.get('memory'))
+            res_action = app_mgr.create(
                 name=a_module.params.get('name'),
                 description=a_module.params.get('description'),
                 vcpus=a_module.params.get('vcpus'),
-                memory=a_module.params.get('memory'),
-                template_name=a_module.params.get('template_name'),
-                category_name=a_module.params.get('category_name'),
-                data_center_name=a_module.params.get('data_center_name'),
-                migration_zone_name=a_module.params.get('migration_zone_name'),
-                flash_pool_name=a_module.params.get('flash_pool_name'),
-                nics=nics,
-            )
+                memory=mem_in_bytes,
+                template_name_or_uuid=a_module.params.get('template'),
+                cat_name_or_uuid=a_module.params.get('category'),
+                dc_name_or_uuid=a_module.params.get('data_center'),
+                mz_name_or_uuid=a_module.params.get('migration_zone'),
+                fp_name_or_uuid=a_module.params.get('flash_pool'),
+                # vnic_name=a_module.params.get('vnic_name'),
+                # vnic_mode=a_module.params.get('vnic_mode'),
+                vnic_vnet_name_or_uuid=a_module.params.get('vnic_vnet'),
+                vnic_firewall_name_or_uuid=a_module.params.get('vnic_fw'),
+                vnic_mac_address=a_module.params.get('vnic_mac_address'))
             if res_action:
                 changed = True
                 if wait:
                     (completed, status) = cloudistics_wait_for_action(act_mgr, wait_timeout, res_action)
-                instance = app_mgr.get_instance(res_action['objectUuid'])
-                # instance = cloudistics_lookup_by_name(app_mgr, name)
+                instance = app_mgr.detail(res_action['objectUuid'])
 
         a_module.exit_json(changed=changed,
                            completed=completed,

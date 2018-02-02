@@ -1,19 +1,29 @@
 ---
 # defaults file for test_cloudistics
 #tag_prefix: 'ansible-testing-'
-tag_prefix: 'testing-'
+cldstcs_name: 'testing-ansible'
 cldstcs_description: 'Test Description'
 cldstcs_vcpus: 1
 cldstcs_memory: 1073741824
-cldstcs_template_name: 'Centos 7.3 with Cloudera 5.10'
-cldstcs_category_name: Default
+
+cldstcs_template_name: 'Centos 7.2 (64-bit)'
+cldstcs_template_uuid: 'fc952e0a-1125-4833-926d-74541a6f0018'
+
+cldstcs_category_name: 'Default'
+cldstcs_category_uuid: 'd2770c09-7f3a-4067-9a9e-6f102dd6f73b'
+
 cldstcs_data_center_name: 'Prod VDC'
+cldstcs_data_center_uuid: 'd087d4d9-a2fd-4c89-8d23-0583d264fccf'
+
 cldstcs_migration_zone_name: 'Prod-MZ'
+cldstcs_migration_zone_uuid: 'bc81aa24-a910-499e-a052-e747921b8e64'
+
 cldstcs_flash_pool_name: 'Prod-Storage-Pool'
-cldstcs_nics:
-  - name: 'vNIC 0'
-    vnet_name: 'Prod-MZ-VNET-01'
-    type: 'Virtual Networking'
-cldstcs_tag_names:
+cldstcs_flash_pool_uuid: '0960bdea-0be3-4d9c-a049-74276b645197'
+
+cldstcs_vnic_name: 'vNIC 0'
+cldstcs_vnic_mode: 'Bridged'
+
+cldstcs_tags:
   - 'CLD-1'
 

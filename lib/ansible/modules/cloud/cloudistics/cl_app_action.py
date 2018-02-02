@@ -1,5 +1,7 @@
 #!/usr/bin/python
-# Copyright: Ansible Project
+# -*- coding: utf-8 -*-
+
+# Copyright: (c) 2018, Ansible Project
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -8,32 +10,20 @@ __metaclass__ = type
 
 ANSIBLE_METADATA = {'metadata_version': '1.1', 'status': ['preview'], 'supported_by': 'community'}
 
-# uuid:
-#   description:
-#     - UUID of the application to perform action option
-#   required: false
-#   default: true
+
 DOCUMENTATION = '''
 ---
 module: cl_app_action
-short_description: Perform actions on Applications from Cloudistics
 extends_documentation_fragment: cloudistics
-version_added: "2.4"
-author: "Joe Cavanaugh (@juniorfoo)"
+short_description: Perform actions on Applications from Cloudistics
 description:
-   - Perform application actions on an existing applicatios from Cloudistics.
-     This module does not return any data other than changed true/false and
-     completed true/false
+   - Perform application actions on an existing applications from Cloudistics.
 options:
   action:
     description:
       - Perform the given action.
     required: true
-    choices: [stop, start, restart, pause, resume]
-
-requirements:
-    - "python >= 2.7"
-    - "cloudistics >= 0.0.1"
+    choices: [restarted, resumed, shutdown, started, stopped, suspended]
 '''
 
 EXAMPLES = '''
@@ -55,19 +45,19 @@ except ImportError as e:
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.cloudistics import cloudistics_full_argument_spec
-from ansible.module_utils.cloudistics import cloudistics_lookup_by_name
 from ansible.module_utils.cloudistics import cloudistics_wait_for_action
 from ansible.module_utils.cloudistics import cloudistics_wait_for_running
 
-# TODO: get this info from API
-ACTIONS = ['stop', 'start', 'restart', 'pause', 'resume']
+ACTIONS = ['restarted', 'resumed', 'shutdown', 'started', 'stopped', 'suspended']
 
-_action_map = {'stop': 'Shut down',
-               'start': 'Running',
-               'restart': 'Restarting',
-               'pause': 'Paused',
-               'resume': 'Running',
-               }
+_action_map = {
+    'restarted': 'Restarting',
+    'resumed': 'Running',
+    'shutdown': 'Shut down',
+    'started': 'Running',
+    'stopped': 'Shut down',
+    'suspended': 'Paused',
+}
 
 
 def _application_status_change(action, instance):
@@ -87,15 +77,16 @@ def main():
         #     ['template_name', 'template_uuid'],
         # ),
 
-        required_if=(
-            [
-                ['action', 'pause', ['name']],
-                ['action', 'restart', ['name']],
-                ['action', 'resume', ['name']],
-                ['action', 'start', ['name']],
-                ['action', 'stop', ['name']],
-            ]
-        ),
+        # required_if=(
+        #     [
+        #         ['action', 'restarted', ['name']],
+        #         ['action', 'resumed', ['name']],
+        #         ['action', 'shutdown', ['name']],
+        #         ['action', 'started', ['name']],
+        #         ['action', 'stopped', ['name']],
+        #         ['action', 'suspended', ['name']],
+        #     ]
+        # ),
 
         # required_together=(
         #     ['a', 'b', 'b'],
@@ -103,7 +94,7 @@ def main():
         supports_check_mode=True
     )
 
-    name = a_module.params['name']
+    identifier = a_module.params['name'] or a_module.params['uuid']
     action = a_module.params['action']
     wait = a_module.params['wait']
     wait_timeout = a_module.params['wait_timeout']
@@ -120,10 +111,10 @@ def main():
     try:
         act_mgr = ActionsManager(cloudistics.client())
         app_mgr = ApplicationsManager(cloudistics.client())
-        instance = cloudistics_lookup_by_name(app_mgr, name)
+        instance = app_mgr.detail(identifier)
 
         if not instance:
-            a_module.fail_json(msg='Could not find application %s' % name)
+            a_module.fail_json(msg='Could not find application %s' % identifier)
 
         if a_module.check_mode:
             a_module.exit_json(changed=_application_status_change(action, instance))
@@ -136,27 +127,27 @@ def main():
         #
         instance_id = instance['uuid']
 
-        if action == 'pause':
-            res_action = app_mgr.suspend_instance(instance_id)
-        elif action == 'restart':
-            res_action = app_mgr.restart_instance(instance_id)
-        elif action == 'resume':
-            res_action = app_mgr.resume_instance(instance_id)
-        elif action == 'start':
-            res_action = app_mgr.start_instance(instance_id)
-        elif action == 'stop':
-            res_action = app_mgr.stop_instance(instance_id)
+        if action == 'restarted':
+            res_action = app_mgr.restart(instance_id)
+        elif action == 'resumed':
+            res_action = app_mgr.resume(instance_id)
+        elif action == 'shutdown':
+            res_action = app_mgr.shutdown(instance_id)
+        elif action == 'started':
+            res_action = app_mgr.start(instance_id)
+        elif action == 'stopped':
+            res_action = app_mgr.stop(instance_id)
+        elif action == 'suspended':
+            res_action = app_mgr.suspend(instance_id)
 
         if res_action and wait:
             (completed, status) = cloudistics_wait_for_action(act_mgr, wait_timeout, res_action)
-            if completed and action in ['restart', 'resume', 'start']:
+            if completed and action in ['restarted', 'resumed', 'started']:
                 (completed, running, app) = cloudistics_wait_for_running(app_mgr, wait_timeout, instance_id)
 
         # Get an updated version of the instance
-        instance = app_mgr.get_instance(instance['uuid'])
+        instance = app_mgr.detail(instance['uuid'])
 
-        # a_module.exit_json(changed=changed, completed=completed, status=status,
-        #                    res_action=res_action, wait=wait)
         a_module.exit_json(changed=changed, completed=completed, status=status, instance=instance)
 
     except exceptions.CloudisticsAPIError as e:

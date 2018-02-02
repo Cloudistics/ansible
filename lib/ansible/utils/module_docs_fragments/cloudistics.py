@@ -23,7 +23,11 @@ options:
   name:
     description:
       - Name of the application
-    required: true
+    required: false
+  uuid:
+    description:
+      - UUID of the application
+    required: false
   wait:
     description:
       - Flag used to wait for action completion before returning
@@ -34,9 +38,12 @@ options:
       - time in seconds before wait returns
     required: false
     default: 60
+version_added: "2.5"
+author: 
+- Joe Cavanaugh (@juniorfoo)
 requirements:
   - python >= 2.7
-  - cloudistics >= 0.0.1
+  - cloudistics >= 0.9.4
 notes:
   - Authentication parameters such as API_KEY and ENDPOINT_* are not allowed in
     playbooks for security reasons. Please use `ccli setup` to create a configuration

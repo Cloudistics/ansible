@@ -17,35 +17,36 @@
 
     - name: Create application
       cl_app:
-        name: "{{ tag_prefix }}"
+        name: "{{ cldstcs_name }}"
         description: "{{ cldstcs_description }}"
         vcpus: "{{ cldstcs_vcpus }}"
         memory: "{{ cldstcs_memory }}"
-        template_name: "{{ cldstcs_template_name }}"
-        category_name: "{{ cldstcs_category_name }}"
-        data_center_name: "{{ cldstcs_data_center_name }}"
-        migration_zone_name: "{{ cldstcs_migration_zone_name }}"
-        flash_pool_name: "{{ cldstcs_flash_pool_name }}"
-        nics: "{{ cldstcs_nics }}"
-        tag_names: "{{ cldstcs_tag_names }}"
+        template: "{{ cldstcs_template_name }}"
+        category: "{{ cldstcs_category_name }}"
+        data_center: "{{ cldstcs_data_center_name }}"
+        migration_zone: "{{ cldstcs_migration_zone_name }}"
+        flash_pool: "{{ cldstcs_flash_pool_name }}"
+        vnic_name: "{{ cldstcs_vnic_name }}"
+        vnic_mode: "{{ cldstcs_vnic_mode }}"
+        tags: "{{ cldstcs_tags }}"
         wait: True
         state: present
-      register: result
+      register: create_result
+
+#    - debug: msg="{{ create_result }}"
 
     - assert:
         that:
-          - 'result.changed'
-          - 'result.instance.status == "Shut down"'
-          - 'result.instance.name == "{{ tag_prefix }}"'
-          - 'result.instance.description == "{{ cldstcs_description }}"'
-          - 'result.instance.vcpus == {{ cldstcs_vcpus }}'
-          - 'result.instance.memory == {{ cldstcs_memory }}'
-          # We don't get the names back
-          # - 'result.instance.template_name == "{{ cldstcs_template_name }}"'
-          # - 'result.instance.category_name == "{{ cldstcs_category_name }}"'
-          # - 'result.instance.data_center_name == "{{ cldstcs_data_center_name }}"'
-          # - 'result.instance.migration_zone_name == "{{ cldstcs_migration_zone_name }}"'
-          # - 'result.instance.flash_pool_name == "{{ cldstcs_flash_pool_name }}"'
+          - 'create_result.changed'
+          - 'create_result.instance.status == "Shut down"'
+          - 'create_result.instance.name == "{{ cldstcs_name }}"'
+          - 'create_result.instance.description == "{{ cldstcs_description }}"'
+          - 'create_result.instance.vcpus == {{ cldstcs_vcpus }}'
+          - 'create_result.instance.memory == {{ cldstcs_memory }}'
+          - 'create_result.instance.categoryUuid == "{{ cldstcs_category_uuid }}"'
+          - 'create_result.instance.datacenterUuid == "{{ cldstcs_data_center_uuid }}"'
+          - 'create_result.instance.flashPoolUuid == "{{ cldstcs_flash_pool_uuid }}"'
+          - 'create_result.instance.migrationZoneUuid == "{{ cldstcs_migration_zone_uuid }}"'
 
 
     # ============================================================
@@ -53,18 +54,18 @@
 
     - name: Start application
       cl_app_action:
-        name: "{{ tag_prefix }}"
-        action: start
+        name: "{{ cldstcs_name }}"
+        action: started
         wait: True
         wait_timeout: 300
-      register: result
+      register: start_result
 
     - assert:
         that:
-          - 'result.changed'
-          - 'result.completed'
-          - 'result.status == "Completed"'
-          - 'result.instance.status == "Running"'
+          - 'start_result.changed'
+          - 'start_result.completed'
+          - 'start_result.status == "Completed"'
+          - 'start_result.instance.status == "Running"'
 
 
     # ============================================================
@@ -72,18 +73,18 @@
 
     - name: Stop application
       cl_app_action:
-        name: "{{ tag_prefix }}"
-        action: stop
+        name: "{{ cldstcs_name }}"
+        action: stopped
         wait: True
         wait_timeout: 300
-      register: result
+      register: stop_result
 
     - assert:
         that:
-          - 'result.changed'
-          - 'result.completed'
-          - 'result.status == "Completed"'
-          - 'result.instance.status == "Shut down"'
+          - 'stop_result.changed'
+          - 'stop_result.completed'
+          - 'stop_result.status == "Completed"'
+          - 'stop_result.instance.status == "Shut down"'
 
 
     # ============================================================
@@ -91,63 +92,63 @@
 
     - name: Start application
       cl_app_action:
-        name: "{{ tag_prefix }}"
-        action: start
+        name: "{{ cldstcs_name }}"
+        action: started
         wait: True
         wait_timeout: 300
-      register: result
+      register: start_result
 
     - assert:
         that:
-          - 'result.changed'
-          - 'result.completed'
-          - 'result.status == "Completed"'
-          - 'result.instance.status == "Running"'
+          - 'start_result.changed'
+          - 'start_result.completed'
+          - 'start_result.status == "Completed"'
+          - 'start_result.instance.status == "Running"'
+
+
+#    # ============================================================
+#    # pause for 5 minutes to allow the guest agent to be installed
+#    - pause:
+#        prompt: 'Make sure the guest agent is running before continuing'
+#        minutes: 5
+
+
+#    # ============================================================
+#    # restart application
+#
+#    - name: Restart application
+#      cl_app_action:
+#        name: "{{ cldstcs_name }}"
+#        action: restarted
+#        wait: True
+#        wait_timeout: 300
+#      register: restart_result
+#
+#    - assert:
+#        that:
+#          - 'restart_result.changed'
+#          - 'restart_result.completed'
+#          - 'restart_result.status == "Completed"'
+#          - 'restart_result.instance.status == "Running"'
 
 
     # ============================================================
-    # pause for 5 minutes to allow the guest agent to be installed
-    - pause:
-        prompt: 'Make sure the guest agent is running before continuing'
-        minutes: 5
+    # suspend application
 
-
-    # ============================================================
-    # restart application
-
-    - name: Restart application
+    - name: Suspend application
       cl_app_action:
-        name: "{{ tag_prefix }}"
-        action: restart
+        name: "{{ cldstcs_name }}"
+        action: suspended
         wait: True
         wait_timeout: 300
-      register: result
+      register: suspend_result
 
     - assert:
         that:
-          - 'result.changed'
-          - 'result.completed'
-          - 'result.status == "Completed"'
-          - 'result.instance.status == "Running"'
-
-
-    # ============================================================
-    # pause application
-
-    - name: Pause application
-      cl_app_action:
-        name: "{{ tag_prefix }}"
-        action: pause
-        wait: True
-        wait_timeout: 300
-      register: result
-
-    - assert:
-        that:
-          - 'result.changed'
-          - 'result.completed'
-          - 'result.status == "Completed"'
-          - 'result.instance.status == "Paused"'
+          - 'suspend_result.changed'
+          - 'suspend_result.completed'
+          - 'suspend_result.status == "Completed"'
+          - 'suspend_result.instance.status == "Paused"'
 
 
     # ============================================================
@@ -155,18 +156,18 @@
 
     - name: Resume application
       cl_app_action:
-        name: "{{ tag_prefix }}"
-        action: resume
+        name: "{{ cldstcs_name }}"
+        action: resumed
         wait: True
         wait_timeout: 300
-      register: result
+      register: resume_result
 
     - assert:
         that:
-          - 'result.changed'
-          - 'result.completed'
-          - 'result.status == "Completed"'
-          - 'result.instance.status == "Running"'
+          - 'resume_result.changed'
+          - 'resume_result.completed'
+          - 'resume_result.status == "Completed"'
+          - 'resume_result.instance.status == "Running"'
 
 
   always:
@@ -174,14 +175,14 @@
     # ============================================================
     - name: remove the test application completely
       cl_app:
-        name: "{{ tag_prefix }}"
+        name: "{{ cldstcs_name }}"
         state: absent
-      register: result
+      register: delete_result
 
     - name: assert the application was removed
       assert:
         that:
-          - 'result.changed'
-          - 'result.completed'
-          - 'result.status == "Completed"'
+          - 'delete_result.changed'
+          - 'delete_result.completed'
+          - 'delete_result.status == "Completed"'
 

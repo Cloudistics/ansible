@@ -1,3 +1,5 @@
+import re
+
 # This code is part of Ansible, but is an independent component.
 # This particular file snippet, and this file snippet only, is BSD licensed.
 # Modules you write using this snippet, which is embedded dynamically by Ansible
@@ -26,10 +28,35 @@
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
 # USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+MEMORY_RE = re.compile(r"^(?P<amount>[0-9]+)(?P<unit>t|tb|g|gb|m|mb|k|kb)?$")
+
+
+def cloudistics_convert_memory_abbreviation_to_bytes(value):
+    """Validate memory argument. Returns the memory value in bytes."""
+    matches = MEMORY_RE.match(value.lower())
+    if matches is None:
+        raise ValueError('%s is not a valid value for memory amount' % value)
+    amount_str, unit = matches.groups()
+    amount = int(amount_str)
+    amount_in_bytes = amount
+    if unit is None:
+        amount_in_bytes = amount
+    elif unit in ['k', 'kb']:
+        amount_in_bytes = amount * 1024
+    elif unit in ['m', 'mb']:
+        amount_in_bytes = amount * 1024 * 1024
+    elif unit in ['g', 'gb']:
+        amount_in_bytes = amount * 1024 * 1024 * 1024
+    elif unit in ['t', 'tb']:
+        amount_in_bytes = amount * 1024 * 1024 * 1024 * 1024
+
+    return amount_in_bytes
+
 
 def cloudistics_full_argument_spec(**kwargs):
     spec = dict(
         name=dict(),
+        uuid=dict(),
         wait=dict(default=True, type='bool'),
         wait_timeout=dict(default=180, type='int'),
     )
@@ -37,11 +64,11 @@ def cloudistics_full_argument_spec(**kwargs):
     return spec
 
 
-def cloudistics_lookup_by_name(manager, given_name):
+def cloudistics_lookup_by_name(manager, given_name, given_uuid):
     # Search by the name given
-    instances = manager.list_instances()
+    instances = manager.list()
     try:
-        return next(x for x in instances if x['name'] == given_name)
+        return next(x for x in instances if x['name'] == given_name or x['uuid'] == given_uuid)
     except StopIteration:
         return None
 
