@@ -17,27 +17,48 @@ $ pip install -r ./requirements.txt
 
 ### Hacking around (against a live system)
 
-##### Create an application (Demo)
+##### Setup ENV (Demo)
+```shell
+$ export CLDSTCS_ENDPOINT_HOST=virtual-lab.cloudistics.com 
+$ export CLDSTCS_API_KEY=<key>
+````
+
+##### Setup ENV (TWS)
+```shell
+$ export CLDSTCS_ENDPOINT_HOST=10.99.100.10
+$ export CLDSTCS_VERIFY=False 
+$ export CLDSTCS_API_KEY=<key>
+````
+
+##### Create two applications (Demo)
 ```shell
 $ hacking/test-module -m lib/ansible/modules/cloud/cloudistics/cl_app.py \
-    -a "name='Ansible_Test-`date +%s`' state=present template='CentOS 6.8 - foo' \ 
+    -a "count=2 name='Ansible_Test' state=present template='CentOS 6.8 - foo' \ 
         dc='Prod VDC' mz='Prod-MZ' fp='Prod-Storage-Pool' mem='2g' vnic_name='vNIC 0'" \
     -c
 ````
 
-##### Delete an application
+##### Create two applications (TWS)
 ```shell
-$ hacking/test-module -m lib/ansible/modules/cloud/cloudistics/cl_app.py -a "name='JPC_Test' state=absent" -c
+$ hacking/test-module -m lib/ansible/modules/cloud/cloudistics/cl_app.py \
+    -a "count=2 name='Ansible_Test' state=present template='Centos 7.4 template' \ 
+        dc='TWS Dev Lab DC' mz='TWS Perf MZ' fp='TWS Dev Storage Pool' mem='2g' vnic_name='vNIC 0'" \
+    -c
+````
+
+##### Delete two applications (Demo and TWS)
+```shell
+$ hacking/test-module -m lib/ansible/modules/cloud/cloudistics/cl_app.py -a "name='Ansible_Test' count=2 state=absent" -c
 ````
 
 ##### Start an application
 ```shell
-$ hacking/test-module -m lib/ansible/modules/cloud/cloudistics/cl_app_action.py -a "name='JPC_Test' action=start"
+$ hacking/test-module -m lib/ansible/modules/cloud/cloudistics/cl_app_action.py -a "name='Ansible_Test' action=start"
 ```
 
 ##### Stop an application
 ```shell
-$ hacking/test-module -m lib/ansible/modules/cloud/cloudistics/cl_app_action.py -a "name='JPC_Test' action=stop"
+$ hacking/test-module -m lib/ansible/modules/cloud/cloudistics/cl_app_action.py -a "name='Ansible_Test' action=stop"
 ```
 
 ### All Tests (With Docker)

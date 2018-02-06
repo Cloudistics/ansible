@@ -10,7 +10,6 @@ __metaclass__ = type
 
 ANSIBLE_METADATA = {'metadata_version': '1.1', 'status': ['preview'], 'supported_by': 'community'}
 
-
 DOCUMENTATION = '''
 ---
 module: cl_app_action
@@ -29,7 +28,7 @@ options:
 EXAMPLES = '''
 # Suspend an application
 - cl_app_action:
-      action: pause
+      action: paused
       name: test_name
       wait: True
       wait_timeout: 300
@@ -103,24 +102,24 @@ def main():
     completed = False
     status = None
     res_action = None
-    running = None
 
     if not HAS_CL:
         a_module.fail_json(msg='Cloudistics python library required for this module')
 
     try:
-        act_mgr = ActionsManager(cloudistics.client())
-        app_mgr = ApplicationsManager(cloudistics.client())
+        act_mgr = ActionsManager(cloudistics.client(api_key=a_module.params.get('api_key')))
+        app_mgr = ApplicationsManager(cloudistics.client(api_key=a_module.params.get('api_key')))
         instance = app_mgr.detail(identifier)
 
         if not instance:
             a_module.fail_json(msg='Could not find application %s' % identifier)
 
         if a_module.check_mode:
-            a_module.exit_json(changed=_application_status_change(action, instance))
+            a_module.exit_json(changed=_application_status_change(action, instance),
+                               completed=False, status=instance['status'], instance=instance)
 
         if not _application_status_change(action, instance):
-            a_module.exit_json(changed=False)
+            a_module.exit_json(changed=False, completed=False, status=instance['status'], instance=instance)
 
         #
         # Do the actions requested and just set our variables, return will happen later

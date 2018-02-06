@@ -76,6 +76,12 @@ options:
     description:
       - Virtual NIC MAC Address
     required: false
+  count:
+    description:
+      - number of instances to create/delete. If >1, the number will be appended to the name (name_1)
+    required: False
+    default: 1
+    aliases: []
   state:
     description:
       - Should the resource be present or absent.
@@ -192,11 +198,11 @@ EXAMPLES = '''
 
 # from __future__ import absolute_import, division, print_function
 
-import json
+import logging
 
 try:
     import cloudistics
-    from cloudistics import ActionsManager, ApplicationsManager, exceptions
+    from cloudistics import ActionsManager, ApplicationsManager, exceptions, CloudisticsAPIError
 
     HAS_CL = True
 except ImportError:
@@ -210,6 +216,133 @@ from ansible.module_utils.cloudistics import cloudistics_wait_for_action
 
 STATES = ['absent', 'present']
 MODES = ['Bridged', 'Node-Only', 'Virtual Networking']
+
+
+def build_name(name_prefix, count, index):
+    if count > 1:
+        return "%s_%d" % (name_prefix, (index + 1))
+    else:
+        return name_prefix
+
+
+def create_instances(a_module, app_mgr, act_mgr, check_mode=False):
+    """
+    Creates new instances
+
+    a_module : AnsibleModule object
+    app_mgr : Cloudistics Applications Manager
+    act_mgr : Cloudistics Actions Manager
+
+    Returns:
+        A list of dictionaries with instance information
+        about the instances that were created
+    """
+
+    name_prefix = a_module.params.get('name')
+    wait = a_module.params['wait']
+    wait_timeout = a_module.params['wait_timeout']
+
+    count = int(a_module.params.get('count'))
+    count_remaining = count
+    instance_dict_array = []
+    instance_uuid_array = []
+
+    # Figure out if we have any instances already running with our name (so we are idempotent with respect to instances)
+    list_instances = app_mgr.list()
+    for x in range(count):
+        name = build_name(name_prefix, count, x)
+        existing_instance = cloudistics_lookup_by_name(app_mgr, name, None, list_instances)
+        if existing_instance is not None:
+            instance_dict_array.append(existing_instance)
+            instance_uuid_array.append(existing_instance['uuid'])
+
+    count_remaining = count_remaining - len(instance_dict_array)
+
+    changed = False
+    if count_remaining > 0:
+        changed = True
+
+    create_actions = []
+
+    if not check_mode:
+        mem_in_bytes = cloudistics_convert_memory_abbreviation_to_bytes(a_module.params.get('memory'))
+        for x in range(count_remaining):
+            name = build_name(name_prefix, count, x)
+            create_action = app_mgr.create(
+                name=name,
+                description=a_module.params.get('description'),
+                vcpus=a_module.params.get('vcpus'),
+                memory=mem_in_bytes,
+                template_name_or_uuid=a_module.params.get('template'),
+                cat_name_or_uuid=a_module.params.get('category'),
+                dc_name_or_uuid=a_module.params.get('data_center'),
+                mz_name_or_uuid=a_module.params.get('migration_zone'),
+                fp_name_or_uuid=a_module.params.get('flash_pool'),
+                # vnic_name=a_module.params.get('vnic_name'),
+                # vnic_mode=a_module.params.get('vnic_mode'),
+                vnic_vnet_name_or_uuid=a_module.params.get('vnic_vnet'),
+                vnic_firewall_name_or_uuid=a_module.params.get('vnic_fw'),
+                vnic_mac_address=a_module.params.get('vnic_mac_address'))
+            create_actions.append(create_action)
+
+    for action in create_actions:
+        instance_uuid_array.append(action['objectUuid'])
+
+        if wait:
+            cloudistics_wait_for_action(act_mgr, wait_timeout, action)
+
+        new_instance = app_mgr.detail(action['objectUuid'])
+        instance_dict_array.append(new_instance)
+
+    return instance_dict_array, instance_uuid_array, changed
+
+
+def delete_instances(a_module, app_mgr, act_mgr, check_mode=False):
+    """
+    Deletes existing instances
+
+    a_module : AnsibleModule object
+    app_mgr : Cloudistics Applications Manager
+    act_mgr : Cloudistics Actions Manager
+
+    Returns:
+        A list of dictionaries with instance information
+        about the instances that were removed
+    """
+
+    name_prefix = a_module.params.get('name')
+    wait = a_module.params['wait']
+    wait_timeout = a_module.params['wait_timeout']
+
+    count = int(a_module.params.get('count'))
+    instance_dict_array = []
+    instance_uuid_array = []
+    changed = False
+
+    remove_actions = []
+    list_instances = app_mgr.list()
+    for x in range(count):
+        name = build_name(name_prefix, count, x)
+        existing_instance = cloudistics_lookup_by_name(app_mgr, name, None, list_instances)
+        if existing_instance is not None:
+            instance_dict_array.append(existing_instance)
+            instance_uuid_array.append(existing_instance['uuid'])
+
+            if not check_mode:
+                try:
+                    remove_action = app_mgr.delete(existing_instance['uuid'])
+                    remove_actions.append(remove_action)
+                except CloudisticsAPIError as e:
+                    a_module.fail_json(
+                        msg='Unable to delete instance %s, error: %s' % (existing_instance['uuid'], e))
+
+            changed = True
+
+    if wait:
+        for action in remove_actions:
+            cloudistics_wait_for_action(act_mgr, wait_timeout, action)
+
+    return instance_dict_array, instance_uuid_array, changed
 
 
 def main():
@@ -229,6 +362,7 @@ def main():
         vnic_fw=dict(),
         vnic_mac=dict(),
         tags=dict(type='list'),
+        count=dict(type='int', default='1'),
     )
 
     a_module = AnsibleModule(
@@ -257,64 +391,38 @@ def main():
         supports_check_mode=True
     )
 
-    state = a_module.params['state']
-    wait = a_module.params['wait']
-    wait_timeout = a_module.params['wait_timeout']
+    if not a_module.no_log:
+        logger = logging.getLogger()
+        logger.addHandler(logging.StreamHandler())
+        logger.setLevel(logging.INFO)
 
+        if a_module._debug:
+            logger.setLevel(logging.DEBUG)
+
+    state = a_module.params['state']
     changed = False
-    completed = False
-    status = None
+    instance_dict_array = []
+    instance_ids_array = []
 
     if not HAS_CL:
         a_module.fail_json(msg='Cloudistics python library (>=0.9.4) required for this module')
 
     try:
-        act_mgr = ActionsManager(cloudistics.client())
-        app_mgr = ApplicationsManager(cloudistics.client())
-        instance = cloudistics_lookup_by_name(app_mgr, a_module.params.get('name'), a_module.params.get('uuid'))
+        act_mgr = ActionsManager(cloudistics.client(api_key=a_module.params.get('api_key')))
+        app_mgr = ApplicationsManager(cloudistics.client(api_key=a_module.params.get('api_key')))
 
         if a_module.check_mode:
             if state == 'absent':
-                a_module.exit_json(instance=instance, changed=(instance is not None))
+                (instance_dict_array, instance_ids_array, changed) = delete_instances(a_module, app_mgr, act_mgr, True)
             elif state == 'present':
-                a_module.exit_json(instance=instance, changed=(instance is None))
+                (instance_dict_array, instance_ids_array, changed) = create_instances(a_module, app_mgr, act_mgr, True)
+        else:
+            if state == 'absent':
+                (instance_dict_array, instance_ids_array, changed) = delete_instances(a_module, app_mgr, act_mgr, False)
+            elif state == 'present':
+                (instance_dict_array, instance_ids_array, changed) = create_instances(a_module, app_mgr, act_mgr, False)
 
-        if state == 'absent' and instance:
-            uuid_to_delete = instance['uuid']
-            res_action = app_mgr.delete(uuid_to_delete)
-            if res_action:
-                changed = True
-                if wait:
-                    (completed, status) = cloudistics_wait_for_action(act_mgr, wait_timeout, res_action)
-                instance = cloudistics_lookup_by_name(app_mgr, a_module.params.get('name'), a_module.params.get('uuid'))
-
-        elif state == 'present' and not instance:
-            mem_in_bytes = cloudistics_convert_memory_abbreviation_to_bytes(a_module.params.get('memory'))
-            res_action = app_mgr.create(
-                name=a_module.params.get('name'),
-                description=a_module.params.get('description'),
-                vcpus=a_module.params.get('vcpus'),
-                memory=mem_in_bytes,
-                template_name_or_uuid=a_module.params.get('template'),
-                cat_name_or_uuid=a_module.params.get('category'),
-                dc_name_or_uuid=a_module.params.get('data_center'),
-                mz_name_or_uuid=a_module.params.get('migration_zone'),
-                fp_name_or_uuid=a_module.params.get('flash_pool'),
-                # vnic_name=a_module.params.get('vnic_name'),
-                # vnic_mode=a_module.params.get('vnic_mode'),
-                vnic_vnet_name_or_uuid=a_module.params.get('vnic_vnet'),
-                vnic_firewall_name_or_uuid=a_module.params.get('vnic_fw'),
-                vnic_mac_address=a_module.params.get('vnic_mac_address'))
-            if res_action:
-                changed = True
-                if wait:
-                    (completed, status) = cloudistics_wait_for_action(act_mgr, wait_timeout, res_action)
-                instance = app_mgr.detail(res_action['objectUuid'])
-
-        a_module.exit_json(changed=changed,
-                           completed=completed,
-                           instance=json.loads(json.dumps(instance, default=lambda o: o.__dict__)),
-                           status=status)
+        a_module.exit_json(changed=changed, instance_ids=instance_ids_array, instances=instance_dict_array)
     except exceptions.CloudisticsAPIError as e:
         a_module.fail_json(msg=e.message)
 

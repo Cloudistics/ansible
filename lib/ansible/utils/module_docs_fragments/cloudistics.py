@@ -28,6 +28,10 @@ options:
     description:
       - UUID of the application
     required: false
+  api_key:
+    description:
+      - API key to use
+    required: false
   wait:
     description:
       - Flag used to wait for action completion before returning
@@ -45,11 +49,8 @@ requirements:
   - python >= 2.7
   - cloudistics >= 0.9.4
 notes:
-  - Authentication parameters such as API_KEY and ENDPOINT_* are not allowed in
-    playbooks for security reasons. Please use `ccli setup` to create a configuration
-    file.
   - Auth information is driven by the Cloudistics python library, which means that 
-    values can come from an ini config file in /etc/cloudistics.conf or ~/.cloudistics,
-    then finally from standard environment variables. More information can be found at
+    values can come from the playbook, an ini config file in /etc/cloudistics.conf 
+    or ~/.cloudistics, or from standard environment variables. More information can be found at
     U(https://http://cloudistics-python.readthedocs.org)
 '''

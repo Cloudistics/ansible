@@ -57,6 +57,7 @@ def cloudistics_full_argument_spec(**kwargs):
     spec = dict(
         name=dict(),
         uuid=dict(),
+        api_key=dict(),
         wait=dict(default=True, type='bool'),
         wait_timeout=dict(default=180, type='int'),
     )
@@ -64,9 +65,11 @@ def cloudistics_full_argument_spec(**kwargs):
     return spec
 
 
-def cloudistics_lookup_by_name(manager, given_name, given_uuid):
-    # Search by the name given
-    instances = manager.list()
+def cloudistics_lookup_by_name(manager, given_name, given_uuid, given_instances=None):
+    instances = given_instances
+    if instances is None:
+        instances = manager.list()
+
     try:
         return next(x for x in instances if x['name'] == given_name or x['uuid'] == given_uuid)
     except StopIteration:
