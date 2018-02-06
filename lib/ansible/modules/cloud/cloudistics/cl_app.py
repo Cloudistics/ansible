@@ -76,6 +76,11 @@ options:
     description:
       - Virtual NIC MAC Address
     required: false
+  disks:
+    description:
+      - List of disk sizes to be assigned to new application (i.e. [1tb, 10tb]).
+    required: true
+    default: []
   count:
     description:
       - number of instances to create/delete. If >1, the number will be appended to the name (name_1)
@@ -202,7 +207,8 @@ import logging
 
 try:
     import cloudistics
-    from cloudistics import ActionsManager, ApplicationsManager, exceptions, CloudisticsAPIError
+    from cloudistics import ActionsManager, ApplicationsManager, exceptions, CloudisticsAPIError, \
+        ApplicationDisksManager
 
     HAS_CL = True
 except ImportError:
@@ -294,6 +300,7 @@ def create_instances(a_module, app_mgr, act_mgr, check_mode=False):
         new_instance = app_mgr.detail(action['objectUuid'])
         instance_dict_array.append(new_instance)
 
+    instance_dict_array = ensure_disks(a_module, app_mgr, act_mgr, instance_uuid_array, check_mode)
     return instance_dict_array, instance_uuid_array, changed
 
 
@@ -345,6 +352,48 @@ def delete_instances(a_module, app_mgr, act_mgr, check_mode=False):
     return instance_dict_array, instance_uuid_array, changed
 
 
+def ensure_disks(a_module, app_mgr, act_mgr, instance_uuid_array, check_mode):
+    """
+    Ensures the instances have the correct disks attached
+
+    a_module : AnsibleModule object
+    app_mgr : Cloudistics Applications Manager
+    act_mgr : Cloudistics Actions Manager
+    instance_dict_array : Instance Dictionary Array
+
+    Returns:
+        A list of dictionaries with instance information
+        about the instances that were ensured
+    """
+
+    app_disk_mgr = ApplicationDisksManager(cloudistics.client(api_key=a_module.params.get('api_key')))
+    wait = a_module.params['wait']
+    wait_timeout = a_module.params['wait_timeout']
+
+    new_instance_dict_array = []
+    existing_disk_dict = {}
+
+    for uuid in instance_uuid_array:
+        instance = app_mgr.detail(uuid)
+        for existing_disk in instance['disks']:
+            existing_disk_dict[existing_disk['name']] = existing_disk
+
+        disk_sizes_array = a_module.params.get('disks')
+        for idx, disk_size in enumerate(disk_sizes_array):
+            new_disk_name = 'Disk %d' % (idx + 1)
+            new_disk_size = cloudistics_convert_memory_abbreviation_to_bytes(disk_size)
+            if new_disk_name not in existing_disk_dict:
+                # We need to create the disk
+                disk_add_action = app_disk_mgr.create(uuid, new_disk_name, new_disk_size)
+                if wait:
+                    cloudistics_wait_for_action(act_mgr, wait_timeout, disk_add_action)
+
+    for uuid in instance_uuid_array:
+        new_instance_dict_array.append(app_mgr.detail(uuid))
+
+    return new_instance_dict_array
+
+
 def main():
     argument_spec = cloudistics_full_argument_spec(
         state=dict(required='present', choices=STATES),
@@ -361,6 +410,7 @@ def main():
         vnic_vnet=dict(),
         vnic_fw=dict(),
         vnic_mac=dict(),
+        disks=dict(type='list', default=[]),
         tags=dict(type='list'),
         count=dict(type='int', default='1'),
     )

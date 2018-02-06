@@ -34,6 +34,8 @@ EXAMPLES = '''
       wait_timeout: 300
 '''
 
+import logging
+
 try:
     import cloudistics
     from cloudistics import ActionsManager, ApplicationsManager, exceptions
@@ -92,6 +94,14 @@ def main():
         # ),
         supports_check_mode=True
     )
+
+    if not a_module.no_log:
+        logger = logging.getLogger()
+        logger.addHandler(logging.StreamHandler())
+        logger.setLevel(logging.INFO)
+
+        if a_module._debug:
+            logger.setLevel(logging.DEBUG)
 
     identifier = a_module.params['name'] or a_module.params['uuid']
     action = a_module.params['action']
