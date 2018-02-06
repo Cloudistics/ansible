@@ -76,6 +76,10 @@ options:
     description:
       - Virtual NIC MAC Address
     required: false
+  group:
+    description:
+      - Group to add the applications to.
+    required: false
   disks:
     description:
       - List of disk sizes to be assigned to new application (i.e. [1tb, 10tb]).
@@ -207,8 +211,12 @@ import logging
 
 try:
     import cloudistics
-    from cloudistics import ActionsManager, ApplicationsManager, exceptions, CloudisticsAPIError, \
-        ApplicationDisksManager
+    from cloudistics import ActionsManager
+    from cloudistics import ApplicationDisksManager
+    from cloudistics import ApplicationGroupsManager
+    from cloudistics import ApplicationsManager
+    from cloudistics import CloudisticsAPIError
+    from cloudistics import exceptions
 
     HAS_CL = True
 except ImportError:
@@ -250,7 +258,6 @@ def create_instances(a_module, app_mgr, act_mgr, check_mode=False):
 
     count = int(a_module.params.get('count'))
     count_remaining = count
-    instance_dict_array = []
     instance_uuid_array = []
 
     # Figure out if we have any instances already running with our name (so we are idempotent with respect to instances)
@@ -259,10 +266,9 @@ def create_instances(a_module, app_mgr, act_mgr, check_mode=False):
         name = build_name(name_prefix, count, x)
         existing_instance = cloudistics_lookup_by_name(app_mgr, name, None, list_instances)
         if existing_instance is not None:
-            instance_dict_array.append(existing_instance)
             instance_uuid_array.append(existing_instance['uuid'])
 
-    count_remaining = count_remaining - len(instance_dict_array)
+    count_remaining = count_remaining - len(instance_uuid_array)
 
     changed = False
     if count_remaining > 0:
@@ -298,10 +304,15 @@ def create_instances(a_module, app_mgr, act_mgr, check_mode=False):
             cloudistics_wait_for_action(act_mgr, wait_timeout, action)
 
         new_instance = app_mgr.detail(action['objectUuid'])
-        instance_dict_array.append(new_instance)
 
-    instance_dict_array = ensure_disks(a_module, app_mgr, act_mgr, instance_uuid_array, check_mode)
-    return instance_dict_array, instance_uuid_array, changed
+    disks_changed = ensure_disks(a_module, app_mgr, act_mgr, instance_uuid_array, check_mode)
+    group_changed = ensure_group(a_module, app_mgr, act_mgr, instance_uuid_array, check_mode)
+
+    instance_dict_array = []
+    for uuid in instance_uuid_array:
+        instance_dict_array.append(app_mgr.detail(uuid))
+
+    return instance_dict_array, instance_uuid_array, (changed or disks_changed or group_changed)
 
 
 def delete_instances(a_module, app_mgr, act_mgr, check_mode=False):
@@ -361,17 +372,14 @@ def ensure_disks(a_module, app_mgr, act_mgr, instance_uuid_array, check_mode):
     act_mgr : Cloudistics Actions Manager
     instance_dict_array : Instance Dictionary Array
 
-    Returns:
-        A list of dictionaries with instance information
-        about the instances that were ensured
+    Returns: Flag to indicate if we changed the disks
     """
 
     app_disk_mgr = ApplicationDisksManager(cloudistics.client(api_key=a_module.params.get('api_key')))
-    wait = a_module.params['wait']
     wait_timeout = a_module.params['wait_timeout']
-
-    new_instance_dict_array = []
+    wait = a_module.params['wait']
     existing_disk_dict = {}
+    changed = False
 
     for uuid in instance_uuid_array:
         instance = app_mgr.detail(uuid)
@@ -383,15 +391,60 @@ def ensure_disks(a_module, app_mgr, act_mgr, instance_uuid_array, check_mode):
             new_disk_name = 'Disk %d' % (idx + 1)
             new_disk_size = cloudistics_convert_memory_abbreviation_to_bytes(disk_size)
             if new_disk_name not in existing_disk_dict:
-                # We need to create the disk
-                disk_add_action = app_disk_mgr.create(uuid, new_disk_name, new_disk_size)
-                if wait:
-                    cloudistics_wait_for_action(act_mgr, wait_timeout, disk_add_action)
+                changed = True
+                if not check_mode:
+                    # We need to create the disk
+                    disk_add_action = app_disk_mgr.create(uuid, new_disk_name, new_disk_size)
+                    if wait:
+                        cloudistics_wait_for_action(act_mgr, wait_timeout, disk_add_action)
 
-    for uuid in instance_uuid_array:
-        new_instance_dict_array.append(app_mgr.detail(uuid))
+    return changed
 
-    return new_instance_dict_array
+
+def ensure_group(a_module, app_mgr, act_mgr, instance_uuid_array, check_mode):
+    """
+    Ensures the instances are in the correct group
+
+    a_module : AnsibleModule object
+    app_mgr : Cloudistics Applications Manager
+    act_mgr : Cloudistics Actions Manager
+    instance_dict_array : Instance Dictionary Array
+
+    Returns: Flag to indicate if we changed the disks
+    """
+
+    changed = False
+    group_identifier = a_module.params.get('group')
+
+    if group_identifier:
+        app_group_mgr = ApplicationGroupsManager(cloudistics.client(api_key=a_module.params.get('api_key')))
+        wait_timeout = a_module.params['wait_timeout']
+        wait = a_module.params['wait']
+
+        existing_group = cloudistics_lookup_by_name(app_group_mgr, group_identifier, None)
+        if not existing_group:
+            changed = True
+            if check_mode:
+                return changed
+            else:
+                # We need to create the group
+                group_add_action = app_group_mgr.create(a_module.params.get('data_center'), group_identifier)
+                cloudistics_wait_for_action(act_mgr, wait_timeout, group_add_action)
+                existing_group = app_group_mgr.detail(group_identifier)
+
+        # for uuid in instance_uuid_array:
+        #     instance = app_mgr.detail(uuid)
+        #     if instance['applicationGroupUuid'] != existing_group['uuid']:
+        #         changed = True
+        #         if check_mode:
+        #             return changed
+        #         else:
+        #             group_add_app_action = app_group_mgr.add_applications(group_identifier, instance['uuid'])
+        #             if wait:
+        #                 cloudistics_wait_for_action(act_mgr, wait_timeout, group_add_app_action)
+        group_add_app_action = app_group_mgr.add_applications(group_identifier, instance_uuid_array)
+        if wait:
+            cloudistics_wait_for_action(act_mgr, wait_timeout, group_add_app_action)
 
 
 def main():
@@ -411,6 +464,7 @@ def main():
         vnic_fw=dict(),
         vnic_mac=dict(),
         disks=dict(type='list', default=[]),
+        group=dict(),
         tags=dict(type='list'),
         count=dict(type='int', default='1'),
     )
@@ -455,7 +509,7 @@ def main():
     instance_ids_array = []
 
     if not HAS_CL:
-        a_module.fail_json(msg='Cloudistics python library (>=0.9.4) required for this module')
+        a_module.fail_json(msg='Cloudistics python library (>=0.9.5) required for this module')
 
     try:
         act_mgr = ActionsManager(cloudistics.client(api_key=a_module.params.get('api_key')))

@@ -38,7 +38,9 @@ import logging
 
 try:
     import cloudistics
-    from cloudistics import ActionsManager, ApplicationsManager, exceptions
+    from cloudistics import ActionsManager
+    from cloudistics import ApplicationsManager
+    from cloudistics import exceptions
 
     HAS_CL = True
 except ImportError as e:
