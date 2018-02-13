@@ -33,7 +33,7 @@ $ export CLDSTCS_API_KEY=<key>
 ##### Create two applications (Demo)
 ```shell
 $ hacking/test-module -m lib/ansible/modules/cloud/cloudistics/cl_app.py \
-    -a "count=2 name='Ansible_Test' state=present template='CentOS 6.8 - foo' \ 
+    -a "count=2 name='Ansible_Test' state=present template='Centos 7.2 (64-bit)' \ 
         dc='Prod VDC' mz='Prod-MZ' fp='Prod-Storage-Pool' mem='2g' vnic_name='vNIC 0'" \
     -c
 ````

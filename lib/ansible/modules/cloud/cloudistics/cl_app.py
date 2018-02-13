@@ -290,8 +290,8 @@ def create_instances(a_module, app_mgr, act_mgr, check_mode=False):
                 dc_name_or_uuid=a_module.params.get('data_center'),
                 mz_name_or_uuid=a_module.params.get('migration_zone'),
                 fp_name_or_uuid=a_module.params.get('flash_pool'),
-                # vnic_name=a_module.params.get('vnic_name'),
-                # vnic_mode=a_module.params.get('vnic_mode'),
+                vnic_name=a_module.params.get('vnic_name'),
+                vnic_mode=a_module.params.get('vnic_mode'),
                 vnic_vnet_name_or_uuid=a_module.params.get('vnic_vnet'),
                 vnic_firewall_name_or_uuid=a_module.params.get('vnic_fw'),
                 vnic_mac_address=a_module.params.get('vnic_mac_address'))
@@ -495,6 +495,11 @@ def main():
         supports_check_mode=True
     )
 
+    # logger = logging.getLogger()
+    # logger.addHandler(logging.StreamHandler())
+    # logger.setLevel(logging.INFO)
+    # logger.setLevel(logging.DEBUG)
+
     if not a_module.no_log:
         logger = logging.getLogger()
         logger.addHandler(logging.StreamHandler())
@@ -509,7 +514,7 @@ def main():
     instance_ids_array = []
 
     if not HAS_CL:
-        a_module.fail_json(msg='Cloudistics python library (>=0.9.5) required for this module')
+        a_module.fail_json(msg='Cloudistics python library (>=0.9.6) required for this module')
 
     try:
         act_mgr = ActionsManager(cloudistics.client(api_key=a_module.params.get('api_key')))
