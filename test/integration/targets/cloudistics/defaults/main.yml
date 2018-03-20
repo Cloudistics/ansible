@@ -22,7 +22,8 @@ cldstcs_flash_pool_name: 'Prod-Storage-Pool'
 cldstcs_flash_pool_uuid: '0960bdea-0be3-4d9c-a049-74276b645197'
 
 cldstcs_vnic_name: 'vNIC 0'
-cldstcs_vnic_mode: 'Bridged'
+cldstcs_vnic_type: 'VNET'
+cldstcs_vnic_network: 'Prod-MZ-VNET-01'
 
 cldstcs_tags:
   - 'CLD-1'

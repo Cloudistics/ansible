@@ -58,15 +58,14 @@ options:
     description:
       - Virtual NIC Name
     required: false
-  vnic_mode:
+  vnic_type:
     description:
-      - Virtual NIC Mode
+      - Virtual NIC Type
     required: false
-    default: 'Bridged'
-    choices: ['Bridged', 'Node-Only', 'Virtual Networking']
-  vnic_vnet:
+    choices: ['VLAN', 'VNET']
+  vnic_network:
     description:
-      - Virtual NIC VNET
+      - Virtual NIC Network
     required: false
   vnic_fw:
     description:
@@ -83,12 +82,12 @@ options:
   disks:
     description:
       - List of disk sizes to be assigned to new application (i.e. [1tb, 10tb]).
-    required: true
+    required: false
     default: []
   count:
     description:
       - number of instances to create/delete. If >1, the number will be appended to the name (name_1)
-    required: False
+    required: false
     default: 1
     aliases: []
   state:
@@ -116,8 +115,8 @@ EXAMPLES = '''
       migration_zone: MZ1
       flash_pool: SP1
       vnic_name: 'vNIC 0'
-      vnic_mode: 'Virtual Networking'
-      vnic_vnet: Vnet1
+      vnic_type: 'VNET'
+      vnic_network: Vnet1
       vnic_fw: 'allow all'
       tags:
         - TT1
@@ -153,8 +152,8 @@ EXAMPLES = '''
         migration_zone: MZ1
         flash_pool: SP1
         vnic_name: 'vNIC 0'
-        vnic_mode: 'Virtual Networking'
-        vnic_vnet: Vnet1
+      vnic_type: 'VNET'
+      vnic_network: Vnet1
         vnic_fw: 'allow all'
         tags:
           - TT1
@@ -170,8 +169,8 @@ EXAMPLES = '''
         migration_zone: MZ1
         flash_pool: SP1
         vnic_name: 'vNIC 0'
-        vnic_mode: 'Virtual Networking'
-        vnic_vnet: Vnet1
+        vnic_type: 'VNET'
+        vnic_network: Vnet1
         vnic_fw: 'allow all'
         tags:
           - TT1
@@ -187,8 +186,8 @@ EXAMPLES = '''
         migration_zone: MZ1
         flash_pool: SP1
         vnic_name: 'vNIC 0'
-        vnic_mode: 'Virtual Networking'
-        vnic_vnet: Vnet1
+        vnic_type: 'VNET'
+        vnic_network: Vnet1
         vnic_fw: 'allow all'
         tags:
           - TT1
@@ -229,7 +228,7 @@ from ansible.module_utils.cloudistics import cloudistics_lookup_by_name
 from ansible.module_utils.cloudistics import cloudistics_wait_for_action
 
 STATES = ['absent', 'present']
-MODES = ['Bridged', 'Node-Only', 'Virtual Networking']
+TYPES = ['VLAN', 'VNET']
 
 
 def build_name(name_prefix, count, index):
@@ -291,8 +290,8 @@ def create_instances(a_module, app_mgr, act_mgr, check_mode=False):
                 mz_name_or_uuid=a_module.params.get('migration_zone'),
                 fp_name_or_uuid=a_module.params.get('flash_pool'),
                 vnic_name=a_module.params.get('vnic_name'),
-                vnic_mode=a_module.params.get('vnic_mode'),
-                vnic_vnet_name_or_uuid=a_module.params.get('vnic_vnet'),
+                vnic_type=a_module.params.get('vnic_type'),
+                vnic_network_name_or_uuid=a_module.params.get('vnic_network'),
                 vnic_firewall_name_or_uuid=a_module.params.get('vnic_fw'),
                 vnic_mac_address=a_module.params.get('vnic_mac_address'))
             create_actions.append(create_action)
@@ -459,8 +458,8 @@ def main():
         migration_zone=dict(aliases=['mz']),
         flash_pool=dict(aliases=['fp', 'sp']),
         vnic_name=dict(),
-        vnic_mode=dict(default='Bridged', choices=MODES),
-        vnic_vnet=dict(),
+        vnic_type=dict(choices=TYPES),
+        vnic_network=dict(),
         vnic_fw=dict(),
         vnic_mac=dict(),
         disks=dict(type='list', default=[]),
@@ -479,8 +478,8 @@ def main():
         required_if=(
             [
                 # ['state', 'absent', ['name']],
-                ['state', 'present', ['name', 'template', 'data_center', 'migration_zone', 'flash_pool']],
-                ['vnic_mode', 'Virtual Networking', ['vnic_vnet']]
+                ['state', 'present', ['name', 'template', 'data_center', 'migration_zone', 'flash_pool', 'vnic_type',
+                                      'vnic_network', 'disks', 'count']],
             ]
         ),
 
@@ -514,7 +513,7 @@ def main():
     instance_ids_array = []
 
     if not HAS_CL:
-        a_module.fail_json(msg='Cloudistics python library (>=0.9.6) required for this module')
+        a_module.fail_json(msg='Cloudistics python library (>=0.9.8) required for this module')
 
     try:
         act_mgr = ActionsManager(cloudistics.client(api_key=a_module.params.get('api_key')))

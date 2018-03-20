@@ -47,7 +47,7 @@ author:
 - Joe Cavanaugh (@juniorfoo)
 requirements:
   - python >= 2.7
-  - cloudistics >= 0.9.6
+  - cloudistics >= 0.9.8
 notes:
   - Auth information is driven by the Cloudistics python library, which means that 
     values can come from the playbook, an ini config file in /etc/cloudistics.conf 

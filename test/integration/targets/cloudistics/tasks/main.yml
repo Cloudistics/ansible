@@ -27,7 +27,8 @@
         migration_zone: "{{ cldstcs_migration_zone_name }}"
         flash_pool: "{{ cldstcs_flash_pool_name }}"
         vnic_name: "{{ cldstcs_vnic_name }}"
-        vnic_mode: "{{ cldstcs_vnic_mode }}"
+        vnic_type: "{{ cldstcs_vnic_network }}"
+        vnic_network: "{{ cldstcs_vnic_network }}"
         tags: "{{ cldstcs_tags }}"
         wait: True
         state: present
