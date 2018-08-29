@@ -27,7 +27,7 @@
         migration_zone: "{{ cldstcs_migration_zone_name }}"
         flash_pool: "{{ cldstcs_flash_pool_name }}"
         vnic_name: "{{ cldstcs_vnic_name }}"
-        vnic_type: "{{ cldstcs_vnic_network }}"
+        vnic_type: "{{ cldstcs_vnic_type }}"
         vnic_network: "{{ cldstcs_vnic_network }}"
         tags: "{{ cldstcs_tags }}"
         wait: True
@@ -44,10 +44,10 @@
           - 'create_result.instance.description == "{{ cldstcs_description }}"'
           - 'create_result.instance.vcpus == {{ cldstcs_vcpus }}'
           - 'create_result.instance.memory == {{ cldstcs_memory }}'
-          - 'create_result.instance.categoryUuid == "{{ cldstcs_category_uuid }}"'
-          - 'create_result.instance.datacenterUuid == "{{ cldstcs_data_center_uuid }}"'
-          - 'create_result.instance.flashPoolUuid == "{{ cldstcs_flash_pool_uuid }}"'
-          - 'create_result.instance.migrationZoneUuid == "{{ cldstcs_migration_zone_uuid }}"'
+          - 'create_result.instance.category_uuid == "{{ cldstcs_category_uuid }}"'
+          - 'create_result.instance.datacenter_uuid == "{{ cldstcs_data_center_uuid }}"'
+          - 'create_result.instance.flash_pool_uuid == "{{ cldstcs_flash_pool_uuid }}"'
+          - 'create_result.instance.migration_zone_uuid == "{{ cldstcs_migration_zone_uuid }}"'
 
 
     # ============================================================

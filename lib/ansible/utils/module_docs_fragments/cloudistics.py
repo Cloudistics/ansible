@@ -20,34 +20,16 @@ class ModuleDocFragment(object):
     # Standard cloudistics documentation fragment
     DOCUMENTATION = '''
 options:
-  name:
-    description:
-      - Name of the application
-    required: false
-  uuid:
-    description:
-      - UUID of the application
-    required: false
   api_key:
     description:
       - API key to use
     required: false
-  wait:
-    description:
-      - Flag used to wait for action completion before returning
-    required: false
-    default: true
-  wait_timeout:
-    description:
-      - time in seconds before wait returns
-    required: false
-    default: 60
 version_added: "2.5"
 author: 
 - Joe Cavanaugh (@juniorfoo)
 requirements:
   - python >= 2.7
-  - cloudistics >= 0.9.8
+  - cloudistics >= 3.5.1
 notes:
   - Auth information is driven by the Cloudistics python library, which means that 
     values can come from the playbook, an ini config file in /etc/cloudistics.conf 

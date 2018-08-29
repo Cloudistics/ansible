@@ -1,4 +1,6 @@
+import itertools
 import re
+import time
 
 # This code is part of Ansible, but is an independent component.
 # This particular file snippet, and this file snippet only, is BSD licensed.
@@ -126,3 +128,25 @@ def cloudistics_wait_for_running(manager, wait_time, uuid):
         pass
 
     return completed, status, app
+
+
+def cloudistics_wait_for_ip_address(manager, wait_time, uuid):
+    app = None
+
+    try:
+        until = time.time() + wait_time
+        for iter_uuid in itertools.repeat(uuid):
+            app = manager.detail(iter_uuid)
+            for vnic in app['vnics']:
+                if 'ipAddress' in vnic and vnic['ipAddress']:
+                    return app, True
+
+            now = time.time()
+            if now >= until:
+                break
+
+            time.sleep(min(2, until - now))
+    except:
+        pass
+
+    return app, False

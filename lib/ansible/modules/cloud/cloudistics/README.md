@@ -30,12 +30,26 @@ $ export CLDSTCS_VERIFY=False
 $ export CLDSTCS_API_KEY=<key>
 ````
 
+##### List all applications (Any)
+```shell
+hacking/test-module -m lib/ansible/modules/cloud/cloudistics/cl_app_facts.py -c
+````
+
 ##### Create two applications (Demo)
 ```shell
 $ hacking/test-module -m lib/ansible/modules/cloud/cloudistics/cl_app.py \
     -a "count=2 name='Ansible_Test' state=present template='Centos 7.2 (64-bit)' \ 
         dc='Prod VDC' mz='Prod-MZ' fp='Prod-Storage-Pool' mem='2g' \
         vnic_name='vNIC 0' vnic_type='VNET' vnic_network='Vnet1'"\
+    -c
+````
+
+##### Create two applications (SE Stack)
+```shell
+hacking/test-module -m lib/ansible/modules/cloud/cloudistics/cl_app.py \
+    -a "count=2 name='Ansible_Test' state=present template='Centos 7.4 (64-bit)' \ 
+        dc='Cavanaugh' mz='Reston Data Center' fp='SE Pool' mem='2g' \
+        vnic_name='vNIC 0' vnic_type='VLAN' vnic_network='Default VLAN for location Primary Sales Engineering'"\
     -c
 ````
 
@@ -47,7 +61,7 @@ $ hacking/test-module -m lib/ansible/modules/cloud/cloudistics/cl_app.py \
     -c
 ````
 
-##### Delete two applications (Demo and TWS)
+##### Delete two applications (All)
 ```shell
 $ hacking/test-module -m lib/ansible/modules/cloud/cloudistics/cl_app.py -a "name='Ansible_Test' count=2 state=absent" -c
 ````

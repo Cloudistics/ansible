@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-# Copyright: (c) 2018, Ansible Project
+# Copyright: (c) 2018, Ansible Project and Cloudistics Inc.
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -18,6 +18,14 @@ short_description: Perform actions on Applications from Cloudistics
 description:
    - Perform application actions on an existing applications from Cloudistics.
 options:
+  name:
+    description:
+      - Name of the application
+    required: false
+  uuid:
+    description:
+      - UUID of the application
+    required: false
   action:
     description:
       - Perform the given action.
@@ -30,8 +38,6 @@ EXAMPLES = '''
 - cl_app_action:
       action: paused
       name: test_name
-      wait: True
-      wait_timeout: 300
 '''
 
 import logging
@@ -50,8 +56,10 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.cloudistics import cloudistics_full_argument_spec
 from ansible.module_utils.cloudistics import cloudistics_wait_for_action
 from ansible.module_utils.cloudistics import cloudistics_wait_for_running
+from ansible.module_utils.cloudistics import cloudistics_wait_for_ip_address
 
 ACTIONS = ['restarted', 'resumed', 'shutdown', 'started', 'stopped', 'suspended']
+WAIT_TIMEOUT = 600
 
 _action_map = {
     'restarted': 'Restarting',
@@ -107,8 +115,6 @@ def main():
 
     identifier = a_module.params['name'] or a_module.params['uuid']
     action = a_module.params['action']
-    wait = a_module.params['wait']
-    wait_timeout = a_module.params['wait_timeout']
 
     changed = True
     completed = False
@@ -151,15 +157,17 @@ def main():
         elif action == 'suspended':
             res_action = app_mgr.suspend(instance_id)
 
-        if res_action and wait:
-            (completed, status) = cloudistics_wait_for_action(act_mgr, wait_timeout, res_action)
+        if res_action:
+            (completed, status) = cloudistics_wait_for_action(act_mgr, WAIT_TIMEOUT, res_action)
             if completed and action in ['restarted', 'resumed', 'started']:
-                (completed, running, app) = cloudistics_wait_for_running(app_mgr, wait_timeout, instance_id)
+                (completed, running, app) = cloudistics_wait_for_running(app_mgr, WAIT_TIMEOUT, instance_id)
 
-        # Get an updated version of the instance
-        instance = app_mgr.detail(instance['uuid'])
-
-        a_module.exit_json(changed=changed, completed=completed, status=status, instance=instance)
+        # Get an updated version of the instance (after waiting for an IP address)
+        instance, has_address = cloudistics_wait_for_ip_address(app_mgr, WAIT_TIMEOUT, instance_id)
+        if has_address:
+            a_module.exit_json(changed=changed, completed=completed, status=status, instance=instance)
+        else:
+            a_module.fail_json(msg='Instance did not have an IP assigned in time', instance=instance)
 
     except exceptions.CloudisticsAPIError as e:
         a_module.fail_json(msg=e.message)

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-# Copyright: (c) 2017, Ansible Project
+# Copyright: (c) 2018, Ansible Project and Cloudistics Inc.
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from __future__ import absolute_import, division, print_function
@@ -18,6 +18,14 @@ extends_documentation_fragment: cloudistics
 description:
    - Creates or Removes Cloudistics virtual machines.
 options:
+  name:
+    description:
+      - Name of the application
+    required: false
+  uuid:
+    description:
+      - UUID of the application
+    required: false
   description:
     description:
       - Description of the application
@@ -121,7 +129,6 @@ EXAMPLES = '''
       tags:
         - TT1
         - TT2
-      wait: False
       state: present
 
 - name: Build additional instances
@@ -140,7 +147,6 @@ EXAMPLES = '''
       migration_zone: "{{ item.migration_zone }}"
       flash_pool: "{{ item.flash_pool }}"
       tags: "{{ item.tags }}"
-      wait: "{{ item.wait }}"
     with_items:
       - name: xx1
         description: xx
@@ -158,7 +164,6 @@ EXAMPLES = '''
         tags:
           - TT1
           - TT2
-        wait: True
       - name: xx2
         description: xx
         vcpus: 1
@@ -175,7 +180,6 @@ EXAMPLES = '''
         tags:
           - TT1
           - TT2
-        wait: True
       - name: xx3
         description: xx
         vcpus: 1
@@ -192,7 +196,6 @@ EXAMPLES = '''
         tags:
           - TT1
           - TT2
-        wait: True
 
 - name: Cancel instances
   hosts: localhost
@@ -226,9 +229,11 @@ from ansible.module_utils.cloudistics import cloudistics_convert_memory_abbrevia
 from ansible.module_utils.cloudistics import cloudistics_full_argument_spec
 from ansible.module_utils.cloudistics import cloudistics_lookup_by_name
 from ansible.module_utils.cloudistics import cloudistics_wait_for_action
+from ansible.module_utils.ec2 import camel_dict_to_snake_dict
 
 STATES = ['absent', 'present']
 TYPES = ['VLAN', 'VNET']
+WAIT_TIMEOUT = 600
 
 
 def build_name(name_prefix, count, index):
@@ -252,9 +257,6 @@ def create_instances(a_module, app_mgr, act_mgr, check_mode=False):
     """
 
     name_prefix = a_module.params.get('name')
-    wait = a_module.params['wait']
-    wait_timeout = a_module.params['wait_timeout']
-
     count = int(a_module.params.get('count'))
     count_remaining = count
     instance_uuid_array = []
@@ -299,19 +301,19 @@ def create_instances(a_module, app_mgr, act_mgr, check_mode=False):
     for action in create_actions:
         instance_uuid_array.append(action['objectUuid'])
 
-        if wait:
-            cloudistics_wait_for_action(act_mgr, wait_timeout, action)
-
-        new_instance = app_mgr.detail(action['objectUuid'])
+        cloudistics_wait_for_action(act_mgr, WAIT_TIMEOUT, action)
 
     disks_changed = ensure_disks(a_module, app_mgr, act_mgr, instance_uuid_array, check_mode)
     group_changed = ensure_group(a_module, app_mgr, act_mgr, instance_uuid_array, check_mode)
+    vcpu_changed = ensure_vcpus(a_module, app_mgr, act_mgr, instance_uuid_array, check_mode)
+    memory_changed = ensure_memory(a_module, app_mgr, act_mgr, instance_uuid_array, check_mode)
 
     instance_dict_array = []
     for uuid in instance_uuid_array:
-        instance_dict_array.append(app_mgr.detail(uuid))
+        instance_dict_array.append(camel_dict_to_snake_dict(app_mgr.detail(uuid)))
 
-    return instance_dict_array, instance_uuid_array, (changed or disks_changed or group_changed)
+    return instance_dict_array, instance_uuid_array, (
+            changed or disks_changed or group_changed or vcpu_changed or memory_changed)
 
 
 def delete_instances(a_module, app_mgr, act_mgr, check_mode=False):
@@ -328,9 +330,6 @@ def delete_instances(a_module, app_mgr, act_mgr, check_mode=False):
     """
 
     name_prefix = a_module.params.get('name')
-    wait = a_module.params['wait']
-    wait_timeout = a_module.params['wait_timeout']
-
     count = int(a_module.params.get('count'))
     instance_dict_array = []
     instance_uuid_array = []
@@ -342,7 +341,7 @@ def delete_instances(a_module, app_mgr, act_mgr, check_mode=False):
         name = build_name(name_prefix, count, x)
         existing_instance = cloudistics_lookup_by_name(app_mgr, name, None, list_instances)
         if existing_instance is not None:
-            instance_dict_array.append(existing_instance)
+            instance_dict_array.append(camel_dict_to_snake_dict(existing_instance))
             instance_uuid_array.append(existing_instance['uuid'])
 
             if not check_mode:
@@ -355,9 +354,8 @@ def delete_instances(a_module, app_mgr, act_mgr, check_mode=False):
 
             changed = True
 
-    if wait:
-        for action in remove_actions:
-            cloudistics_wait_for_action(act_mgr, wait_timeout, action)
+    for action in remove_actions:
+        cloudistics_wait_for_action(act_mgr, WAIT_TIMEOUT, action)
 
     return instance_dict_array, instance_uuid_array, changed
 
@@ -375,8 +373,6 @@ def ensure_disks(a_module, app_mgr, act_mgr, instance_uuid_array, check_mode):
     """
 
     app_disk_mgr = ApplicationDisksManager(cloudistics.client(api_key=a_module.params.get('api_key')))
-    wait_timeout = a_module.params['wait_timeout']
-    wait = a_module.params['wait']
     existing_disk_dict = {}
     changed = False
 
@@ -394,8 +390,7 @@ def ensure_disks(a_module, app_mgr, act_mgr, instance_uuid_array, check_mode):
                 if not check_mode:
                     # We need to create the disk
                     disk_add_action = app_disk_mgr.create(uuid, new_disk_name, new_disk_size)
-                    if wait:
-                        cloudistics_wait_for_action(act_mgr, wait_timeout, disk_add_action)
+                    cloudistics_wait_for_action(act_mgr, WAIT_TIMEOUT, disk_add_action)
 
     return changed
 
@@ -417,8 +412,6 @@ def ensure_group(a_module, app_mgr, act_mgr, instance_uuid_array, check_mode):
 
     if group_identifier:
         app_group_mgr = ApplicationGroupsManager(cloudistics.client(api_key=a_module.params.get('api_key')))
-        wait_timeout = a_module.params['wait_timeout']
-        wait = a_module.params['wait']
 
         existing_group = cloudistics_lookup_by_name(app_group_mgr, group_identifier, None)
         if not existing_group:
@@ -428,22 +421,63 @@ def ensure_group(a_module, app_mgr, act_mgr, instance_uuid_array, check_mode):
             else:
                 # We need to create the group
                 group_add_action = app_group_mgr.create(a_module.params.get('data_center'), group_identifier)
-                cloudistics_wait_for_action(act_mgr, wait_timeout, group_add_action)
-                existing_group = app_group_mgr.detail(group_identifier)
+                cloudistics_wait_for_action(act_mgr, WAIT_TIMEOUT, group_add_action)
 
-        # for uuid in instance_uuid_array:
-        #     instance = app_mgr.detail(uuid)
-        #     if instance['applicationGroupUuid'] != existing_group['uuid']:
-        #         changed = True
-        #         if check_mode:
-        #             return changed
-        #         else:
-        #             group_add_app_action = app_group_mgr.add_applications(group_identifier, instance['uuid'])
-        #             if wait:
-        #                 cloudistics_wait_for_action(act_mgr, wait_timeout, group_add_app_action)
         group_add_app_action = app_group_mgr.add_applications(group_identifier, instance_uuid_array)
-        if wait:
-            cloudistics_wait_for_action(act_mgr, wait_timeout, group_add_app_action)
+        cloudistics_wait_for_action(act_mgr, WAIT_TIMEOUT, group_add_app_action)
+
+
+def ensure_memory(a_module, app_mgr, act_mgr, instance_uuid_array, check_mode):
+    """
+    Ensures the instances have the correct memory
+
+    a_module : AnsibleModule object
+    app_mgr : Cloudistics Applications Manager
+    act_mgr : Cloudistics Actions Manager
+    instance_dict_array : Instance Dictionary Array
+
+    Returns: Flag to indicate if we changed the memory
+    """
+
+    changed = False
+
+    for uuid in instance_uuid_array:
+        mem_in_bytes = cloudistics_convert_memory_abbreviation_to_bytes(a_module.params.get('memory'))
+        instance = app_mgr.detail(uuid)
+        if not instance['memory'] == mem_in_bytes:
+            changed = True
+            if not check_mode:
+                # We need to update the memory
+                change_action = app_mgr.memory(uuid, mem_in_bytes)
+                cloudistics_wait_for_action(act_mgr, WAIT_TIMEOUT, change_action)
+
+    return changed
+
+
+def ensure_vcpus(a_module, app_mgr, act_mgr, instance_uuid_array, check_mode):
+    """
+    Ensures the instances have the correct vcpus
+
+    a_module : AnsibleModule object
+    app_mgr : Cloudistics Applications Manager
+    act_mgr : Cloudistics Actions Manager
+    instance_dict_array : Instance Dictionary Array
+
+    Returns: Flag to indicate if we changed the vcpus
+    """
+
+    changed = False
+
+    for uuid in instance_uuid_array:
+        instance = app_mgr.detail(uuid)
+        if not instance['vcpus'] == a_module.params.get('vcpus'):
+            changed = True
+            if not check_mode:
+                # We need to update the VCPU count
+                change_action = app_mgr.vcpus(uuid, a_module.params.get('vcpus'))
+                cloudistics_wait_for_action(act_mgr, WAIT_TIMEOUT, change_action)
+
+    return changed
 
 
 def main():
