@@ -17,6 +17,12 @@ $ pip install -r ./requirements.txt
 
 ### Hacking around (against a live system)
 
+##### Setup ENV (ThinkAgile CP)
+```shell
+$ export CLDSTCS_ENDPOINT_HOST=manage.cloudistics.com 
+$ export CLDSTCS_API_KEY=<key>
+````
+
 ##### Setup ENV (Demo)
 ```shell
 $ export CLDSTCS_ENDPOINT_HOST=virtual-lab.cloudistics.com 
@@ -29,6 +35,8 @@ $ export CLDSTCS_ENDPOINT_HOST=10.99.100.10
 $ export CLDSTCS_VERIFY=False 
 $ export CLDSTCS_API_KEY=<key>
 ````
+##### Notes:   -c is for 'check'.  Remove when test passes for actual command.
+##### Replace contents between ' ' with your ThinkAgile CP migration zone/storage pools/vdc etc where appropriate
 
 ##### List all applications (Any)
 ```shell
